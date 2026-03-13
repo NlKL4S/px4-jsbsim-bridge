@@ -41,6 +41,7 @@
 
 #include "sensor_gps_plugin.h"
 #include "common.h"
+#include <cmath>
 
 SensorGpsPlugin::SensorGpsPlugin(JSBSim::FGFDMExec* jsbsim) : SensorPlugin(jsbsim) { _update_rate = 1.0; }
 
@@ -73,7 +74,7 @@ SensorData::Gps SensorGpsPlugin::getData() {
 }
 
 SensorData::Gps SensorGpsPlugin::getGpsFromJSBSim() {
-  SensorData::Gps ret;
+  SensorData::Gps ret{};
   ret.time_utc_usec = _sim_ptr->GetSimTime() * 1e6;
 
   if (_jsb_gps_fix_type == "none") {
@@ -100,13 +101,57 @@ SensorData::Gps SensorGpsPlugin::getGpsFromJSBSim() {
     ret.satellites_visible = _sim_ptr->GetPropertyValue(_jsb_gps_satellites);
   }
 
-  ret.latitude_deg = _sim_ptr->GetPropertyValue(_jsb_gps_lat) * 1e7;
-  ret.longitude_deg = _sim_ptr->GetPropertyValue(_jsb_gps_lon) * 1e7;
-  ret.altitude = ftToM(_sim_ptr->GetPropertyValue(_jsb_gps_alt)) * 1e3;
-  ret.velocity_north = ftToM(_sim_ptr->GetPropertyValue(_jsb_gps_v_north)) * 100;
-  ret.velocity_east = ftToM(_sim_ptr->GetPropertyValue(_jsb_gps_v_east)) * 100;
-  ret.velocity_down = ftToM(_sim_ptr->GetPropertyValue(_jsb_gps_v_down)) * 100;
-  ret.velocity = ftToM(_sim_ptr->GetPropertyValue(_jsb_gps_velocity)) * 100;
+  auto read_prop = [&](const std::string& name, double &out) -> bool {
+    if (name == "none") return false;
+    out = _sim_ptr->GetPropertyValue(name);
+    return std::isfinite(out);
+  };
+
+  auto read_prop_any = [&](const std::string& primary,
+                           std::initializer_list<const char*> fallbacks,
+                           double &out) -> bool {
+    if (read_prop(primary, out)) return true;
+    for (const char* f : fallbacks) {
+      out = _sim_ptr->GetPropertyValue(f);
+      if (std::isfinite(out)) return true;
+    }
+    return false;
+  };
+
+  double lat_deg = NAN;
+  double lon_deg = NAN;
+  double alt_ft = NAN;
+
+  read_prop_any(_jsb_gps_lat,
+                {"position/lat-gc-deg", "position/lat-geod-deg"},
+                lat_deg);
+  read_prop_any(_jsb_gps_lon,
+                {"position/long-gc-deg", "position/long-geod-deg"},
+                lon_deg);
+  read_prop_any(_jsb_gps_alt,
+                {"position/h-sl-ft", "position/h-agl-ft"},
+                alt_ft);
+
+  if (!std::isfinite(lat_deg) || !std::isfinite(lon_deg) ||
+      std::abs(lat_deg) > 90.0 || std::abs(lon_deg) > 180.0) {
+    ret.fix_type = 0;
+    return ret;
+  }
+
+  ret.latitude_deg = lat_deg * 1e7;
+  ret.longitude_deg = lon_deg * 1e7;
+  ret.altitude = ftToM(alt_ft) * 1e3;
+
+  double v_n = NAN, v_e = NAN, v_d = NAN, v = NAN;
+  if (!read_prop(_jsb_gps_v_north, v_n)) v_n = 0.0;
+  if (!read_prop(_jsb_gps_v_east, v_e)) v_e = 0.0;
+  if (!read_prop(_jsb_gps_v_down, v_d)) v_d = 0.0;
+  if (!read_prop(_jsb_gps_velocity, v)) v = 0.0;
+
+  ret.velocity_north = ftToM(v_n) * 100;
+  ret.velocity_east = ftToM(v_e) * 100;
+  ret.velocity_down = ftToM(v_d) * 100;
+  ret.velocity = ftToM(v) * 100;
   ret.cog = wrap_pi_deg(atan2f(ret.velocity_east, ret.velocity_north) * (180 / M_PI)) * 100;
 
   ret.id = 1;

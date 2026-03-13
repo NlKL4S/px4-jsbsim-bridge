@@ -40,6 +40,7 @@
  */
 
 #include "sensor_airspeed_plugin.h"
+#include <cmath>
 
 SensorAirspeedPlugin::SensorAirspeedPlugin(JSBSim::FGFDMExec* jsbsim) : SensorPlugin(jsbsim) {}
 
@@ -57,12 +58,39 @@ SensorData::Airspeed SensorAirspeedPlugin::getData() {
   const double diff_pressure_noise = standard_normal_distribution_(_random_generator) * _diff_pressure_stddev;
 
   double diff_pressure = getDiffPressure();
+  if (!std::isfinite(diff_pressure)) {
+    diff_pressure = 0.0;
+  }
 
   SensorData::Airspeed data;
   data.diff_pressure = diff_pressure + diff_pressure_noise;
+  if (!std::isfinite(data.diff_pressure)) {
+    data.diff_pressure = 0.0;
+  }
 
   _last_sim_time = sim_time;
   return data;
 }
 
-double SensorAirspeedPlugin::getDiffPressure() { return psfToMbar(_sim_ptr->GetPropertyValue(_jsb_diff_pressure)); }
+double SensorAirspeedPlugin::getDiffPressure() {
+  double dp_psf = _sim_ptr->GetPropertyValue(_jsb_diff_pressure);
+
+  if (!std::isfinite(dp_psf)) {
+    dp_psf = _sim_ptr->GetPropertyValue("aero/qbar-psf");
+  }
+
+  if (!std::isfinite(dp_psf)) {
+    const double vtrue_fps = _sim_ptr->GetPropertyValue("velocities/vtrue-fps");
+    const double rho = _sim_ptr->GetPropertyValue("atmosphere/rho-slugs_ft3");
+
+    if (std::isfinite(vtrue_fps) && std::isfinite(rho)) {
+      dp_psf = 0.5 * rho * vtrue_fps * vtrue_fps;
+    }
+  }
+
+  if (!std::isfinite(dp_psf)) {
+    dp_psf = 0.0;
+  }
+
+  return psfToMbar(dp_psf);
+}

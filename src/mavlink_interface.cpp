@@ -226,9 +226,10 @@ void MavlinkInterface::Load() {
 }
 
 void MavlinkInterface::SendSensorMessages(int time_usec) {
-  mavlink_hil_sensor_t sensor_msg;
+  mavlink_hil_sensor_t sensor_msg{};
 
   sensor_msg.time_usec = time_usec;
+  sensor_msg.id = 0;
 
   if (imu_updated_) {
     sensor_msg.xacc = accel_b_[0];

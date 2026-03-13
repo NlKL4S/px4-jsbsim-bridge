@@ -56,7 +56,7 @@ class SensorGpsPlugin : public SensorPlugin {
   std::string _jsb_gps_fix_type = "none";
   std::string _jsb_gps_lat = "position/lat-geod-deg";
   std::string _jsb_gps_lon = "position/long-gc-deg";
-  std::string _jsb_gps_alt = "position/h-sl-meters";
+  std::string _jsb_gps_alt = "position/h-agl-ft";
   std::string _jsb_gps_eph = "none";
   std::string _jsb_gps_epv = "none";
   std::string _jsb_gps_v_north = "velocities/v-north-fps";

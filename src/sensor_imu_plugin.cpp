@@ -93,7 +93,8 @@ Eigen::Vector3d SensorImuPlugin::getAccelFromJSBSim() {
   double y = _sim_ptr->GetPropertyValue(_jsb_acc_y);
   double z = _sim_ptr->GetPropertyValue(_jsb_acc_z);
 
-  return Eigen::Vector3d(ftToM(x), ftToM(y), ftToM(z));
+  // JSBSim linear acceleration does not include gravity; add +g on body Z (down)
+  return Eigen::Vector3d(ftToM(x), ftToM(y), ftToM(z) + gravity_magnitude);
 }
 
 Eigen::Vector3d SensorImuPlugin::getGyroFromJSBSim() {

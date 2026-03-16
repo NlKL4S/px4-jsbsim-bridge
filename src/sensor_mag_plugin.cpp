@@ -114,6 +114,9 @@ Eigen::Vector3d SensorMagPlugin::getMagFromJSBSim() {
 
     Eigen::Vector3d mag1 = rotationMatrix * _mag_g;
 
+    // PX4 uses body NED with +Z down. JSBSim's field uses +Z up here,
+    // so flip Z to match PX4's convention.
+    mag1[2] = -mag1[2];
     return mag1;
 
   } else {
@@ -123,6 +126,7 @@ Eigen::Vector3d SensorMagPlugin::getMagFromJSBSim() {
     _mag_g[0] = _sim_ptr->GetPropertyValue(_jsb_mag_x) * 1e-5;
     _mag_g[1] = _sim_ptr->GetPropertyValue(_jsb_mag_y) * 1e-5;
     _mag_g[2] = _sim_ptr->GetPropertyValue(_jsb_mag_z) * 1e-5;
+    _mag_g[2] = -_mag_g[2];
     return _mag_g;
   }
 }

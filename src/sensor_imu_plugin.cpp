@@ -93,8 +93,9 @@ Eigen::Vector3d SensorImuPlugin::getAccelFromJSBSim() {
   double y = _sim_ptr->GetPropertyValue(_jsb_acc_y);
   double z = _sim_ptr->GetPropertyValue(_jsb_acc_z);
 
-  // JSBSim specific force is opposite sign to PX4 expectation; invert axes.
-  return Eigen::Vector3d(-ftToM(x), -ftToM(y), -ftToM(z));
+  // PX4 expects specific force in body FRD (at rest: ~-g on Z).
+  // JSBSim a-pilot accelerations are already in body axes with the correct sign for this.
+  return Eigen::Vector3d(ftToM(x), ftToM(y), ftToM(z));
 }
 
 Eigen::Vector3d SensorImuPlugin::getGyroFromJSBSim() {
